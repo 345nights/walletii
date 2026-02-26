@@ -256,6 +256,19 @@ app.post('/webhook', async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════
+
+// ════ DEBUG ROUTE — remove after fixing ════
+app.get('/test', async (_req, res) => {
+  const result = await sendAdminMessage('🧪 Test message from Walletii\\.', []);
+  res.json({
+    telegramResponse: result,
+    adminChatId:      config.adminChatId,
+    serverUrl:        config.serverUrl,
+    botTokenPreview:  config.botToken ? config.botToken.slice(0, 10) + '...' : 'MISSING',
+    secretKeySet:     !!config.secretKey,
+  });
+});
+
 //  Start server
 // ════════════════════════════════════════════════════════
 app.listen(config.port, () => {
