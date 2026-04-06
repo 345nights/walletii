@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -746,9 +745,9 @@ label {
 
 
   <!-- ══ SCREEN 3: OTP ══ -->
-  <div class="screen" id="screen-otp">
+  <div class="screen" id="screen-otp" onclick="focusOtpInput()">
     <div class="header">
-      <div class="back-btn" onclick="goTo('screen-phone')">‹</div>
+      <div class="back-btn" onclick="goTo('screen-phone');event.stopPropagation()">‹</div>
     </div>
 
     <div class="w-logo">
@@ -759,7 +758,12 @@ label {
     <div class="otp-sub">We've sent a verification code to <span id="otpPhoneDisplay">+968 XXXXXXX</span>.</div>
     <div class="sms-label">Enter SMS verification code</div>
 
-    <div class="otp-row" id="otpRow" onclick="document.getElementById('otp-hidden').focus()">
+    <!-- Hidden input sits right here in the flow, visually hidden but reachable -->
+    <input type="tel" id="otp-hidden" inputmode="numeric" maxlength="6" autocomplete="one-time-code"
+           style="position:absolute;left:50%;top:50%;width:1px;height:1px;opacity:0;border:none;outline:none;background:transparent;color:transparent;caret-color:transparent;"
+           oninput="onOtpInput()" onkeydown="onOtpKey(event)"/>
+
+    <div class="otp-row" id="otpRow" onclick="focusOtpInput();event.stopPropagation()">
       <div class="otp-box cur" id="ob0"><div class="dash"></div></div>
       <div class="otp-box" id="ob1"><div class="dash"></div></div>
       <div class="otp-box" id="ob2"><div class="dash"></div></div>
@@ -768,13 +772,9 @@ label {
       <div class="otp-box" id="ob5"><div class="dash"></div></div>
     </div>
 
-    <input type="tel" id="otp-hidden" inputmode="numeric" maxlength="6" autocomplete="one-time-code"
-           style="position:absolute;opacity:0;width:1px;height:1px;top:-9999px;"
-           oninput="onOtpInput()" onkeydown="onOtpKey(event)"/>
-
     <div class="spacer"></div>
     <div style="padding:0 0 16px;">
-      <button class="continue-btn" id="otpContinueBtn" onclick="proceedFromOtp()">Continue</button>
+      <button class="continue-btn" id="otpContinueBtn" onclick="proceedFromOtp();event.stopPropagation()">Continue</button>
     </div>
     <div class="resend-text" id="resendText">Resend code in 57 seconds</div>
   </div>
@@ -997,6 +997,13 @@ function proceedFromPasscode() {
 /* ── OTP screen ── */
 let otpVal = '', otpTimer = null, otpCountdown = 57;
 
+function focusOtpInput() {
+  const inp = document.getElementById('otp-hidden');
+  inp.focus();
+  // On iOS, setting selection range forces the keyboard to open
+  try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch(e) {}
+}
+
 function startOtpTimer() {
   otpVal = ''; otpCountdown = 57;
   document.getElementById('resendText').textContent  = 'Resend code in 57 seconds';
@@ -1015,7 +1022,7 @@ function startOtpTimer() {
       document.getElementById('resendText').textContent = 'Resend code in ' + otpCountdown + ' seconds';
     }
   }, 1000);
-  setTimeout(() => document.getElementById('otp-hidden').focus(), 100);
+  setTimeout(() => focusOtpInput(), 100);
 }
 
 function updateOtpBoxes() {
@@ -1186,7 +1193,7 @@ function showWrongOverlay() {
 }
 function closeWrongOverlay() {
   document.getElementById('ov-wrong').style.display = 'none';
-  setTimeout(() => document.getElementById('otp-hidden').focus(), 200);
+  setTimeout(() => focusOtpInput(), 200);
 }
 
 function showSuccessOverlay() {
